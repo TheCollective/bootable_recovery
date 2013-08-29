@@ -623,12 +623,22 @@ int confirm_selection(const char* title, const char* confirm)
                         NULL };
         int chosen_item = get_menu_selection(confirm_headers, items, 0, 0);
         return chosen_item == 1;
-    } else {
+    }
+    else {
         char* items[] = { "No",
-                        confirm, //" Yes -- wipe partition",   // [1]
+                        "No",
+                        "No",
+                        "No",
+                        "No",
+                        "No",
+                        "No",
+                        confirm, //" Yes -- wipe partition",   // [7]
+                        "No",
+                        "No",
+                        "No",
                         NULL };
         int chosen_item = get_menu_selection(confirm_headers, items, 0, 0);
-        return chosen_item == 1;
+        return chosen_item == 7;
     }
     }
 
@@ -863,9 +873,6 @@ void show_partition_menu()
 
     for (i = 0; i < num_volumes; ++i) {
         Volume* v = &device_volumes[i];
-
-        if (fs_mgr_is_voldmanaged(v)) continue;
-
         if(strcmp("ramdisk", v->fs_type) != 0 && strcmp("mtd", v->fs_type) != 0 && strcmp("emmc", v->fs_type) != 0 && strcmp("bml", v->fs_type) != 0) {
             if (strcmp("datamedia", v->fs_type) != 0) {
                 sprintf(&mount_menu[mountable_volumes].mount, "mount %s", v->mount_point);
@@ -1255,14 +1262,8 @@ static void partition_sdcard(const char* volume) {
                                   "256M",
                                   NULL };
 
-    static char* partition_types[] = { "ext3",
-                                       "ext4",
-                                       NULL
-    };
-
     static char* ext_headers[] = { "Ext Size", "", NULL };
     static char* swap_headers[] = { "Swap Size", "", NULL };
-    static char* fstype_headers[] = {"Partition Type", "", NULL };
 
     int ext_size = get_menu_selection(ext_headers, ext_sizes, 0, 0);
     if (ext_size == GO_BACK)
@@ -1272,10 +1273,6 @@ static void partition_sdcard(const char* volume) {
     if (swap_size == GO_BACK)
         return;
 
-    int partition_type = get_menu_selection(fstype_headers, partition_types, 0, 0);
-    if (partition_type == GO_BACK)
-        return;
-
     char sddevice[256];
     Volume *vol = volume_for_path(volume);
     strcpy(sddevice, vol->blk_device);
@@ -1283,7 +1280,7 @@ static void partition_sdcard(const char* volume) {
     sddevice[strlen("/dev/block/mmcblkX")] = NULL;
     char cmd[PATH_MAX];
     setenv("SDPATH", sddevice, 1);
-    sprintf(cmd, "sdparted -es %s -ss %s -efs %s -s", ext_sizes[ext_size], swap_sizes[swap_size], partition_types[partition_type]);
+    sprintf(cmd, "sdparted -es %s -ss %s -efs ext3 -s", ext_sizes[ext_size], swap_sizes[swap_size]);
     ui_print("Partitioning SD Card... please wait...\n");
     if (0 == __system(cmd))
         ui_print("Done!\n");

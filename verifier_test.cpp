@@ -18,7 +18,9 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+#include "common.h"
 #include "verifier.h"
+#include "ui.h"
 
 // This is build/target/product/security/testkey.x509.pem after being
 // dumped out by dumpkey.jar.
@@ -96,33 +98,63 @@ RSAPublicKey test_f4_key =
       65537
     };
 
-void ui_print(const char* fmt, ...) {
-    char buf[256];
+RecoveryUI* ui = NULL;
+
+// verifier expects to find a UI object; we provide one that does
+// nothing but print.
+class FakeUI : public RecoveryUI {
+    void Init() { }
+    void SetBackground(Icon icon) { }
+
+    void SetProgressType(ProgressType determinate) { }
+    void ShowProgress(float portion, float seconds) { }
+    void SetProgress(float fraction) { }
+
+    void ShowText(bool visible) { }
+    bool IsTextVisible() { return false; }
+    bool WasTextEverVisible() { return false; }
+    void Print(const char* fmt, ...) {
+        va_list ap;
+        va_start(ap, fmt);
+        vfprintf(stderr, fmt, ap);
+        va_end(ap);
+    }
+
+    void StartMenu(const char* const * headers, const char* const * items,
+                           int initial_selection) { }
+    int SelectMenu(int sel) { return 0; }
+    void EndMenu() { }
+};
+
+void
+ui_print(const char* format, ...) {
     va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(buf, 256, fmt, ap);
+    va_start(ap, format);
+    vfprintf(stdout, format, ap);
     va_end(ap);
-
-    fputs(buf, stderr);
-}
-
-void ui_set_progress(float fraction) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2 && argc != 3) {
-        fprintf(stderr, "Usage: %s [-f4] <package>\n", argv[0]);
+    if (argc < 2 || argc > 4) {
+        fprintf(stderr, "Usage: %s [-f4 | -file <keys>] <package>\n", argv[0]);
         return 2;
     }
 
     RSAPublicKey* key = &test_key;
+    int num_keys = 1;
     ++argv;
     if (strcmp(argv[0], "-f4") == 0) {
         ++argv;
         key = &test_f4_key;
+    } else if (strcmp(argv[0], "-file") == 0) {
+        ++argv;
+        key = load_keys(argv[0], &num_keys);
+        ++argv;
     }
 
-    int result = verify_file(*argv, key, 1);
+    ui = new FakeUI();
+
+    int result = verify_file(*argv, key, num_keys);
     if (result == VERIFY_SUCCESS) {
         printf("SUCCESS\n");
         return 0;
